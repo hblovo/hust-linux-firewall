@@ -1,9 +1,9 @@
 package service
 
-import "web_backend/service/problem"
+import "web_backend/service/rule"
 
 type ServiceGroup struct {
-	ProblemServiceGroup problem.ServiceGroup
+	RuleServiceGroup rule.ServiceGroup
 }
 
 var ServiceGroupApp = new(ServiceGroup)

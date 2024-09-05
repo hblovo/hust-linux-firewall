@@ -1,0 +1,2 @@
+编译指令为
+GOOS=linux GOARCH=amd64 go build -o web_backend
