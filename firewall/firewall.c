@@ -73,8 +73,7 @@ unsigned int telnet_filter(void *priv,
 
 static int firewall_init(void)
 {
-    printk("my firewall module loaded.\n");
-
+    FIREWALL_LOG("Module loaded.\n");
     filter.hook = (nf_hookfn *)filter_hook_func;
     filter.pf = PF_INET;
     filter.hooknum = NF_INET_FORWARD;//进行包过滤
@@ -91,9 +90,13 @@ static int firewall_init(void)
 
 static void firewall_exit(void)
 {
-    printk("my firewall module exit...\n");
     nf_unregister_hook(&filter);
-    sock_release(socket->sk_socket);
+    FIREWALL_LOG("Netfilter hook unregistered.\n");
+    if (socket) {
+        sock_release(socket->sk_socket);
+        FIREWALL_LOG("Socket released.\n");
+    }
+    FIREWALL_LOG("Firewall module exit completed.\n");
 }
 
 module_init(firewall_init);

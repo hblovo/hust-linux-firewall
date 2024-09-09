@@ -5,9 +5,10 @@
 #define ICMP 1
 #define TCP 6
 #define UDP 17
-#define NETLINK 66
+#define NETLINK 30
 #define MAX_MSG_LEN 30
 #define RULE_SIZE 50
+#define FIREWALL_LOG(fmt, ...) printk(KERN_INFO "[firewall] " fmt, ##__VA_ARGS__)
 typedef struct {
     unsigned src_ip;    // 源IP地址
     unsigned dst_ip;    // 目的IP地址

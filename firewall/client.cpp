@@ -31,7 +31,7 @@ int main()
 
     //创建套接字并绑定
     int socket_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK);
-    bind_socket(socket_fd);
+    int ret = bind_socket(socket_fd);
 
     Rule rule;Rule rules[RULE_SIZE];
     int rule_cnt = 0;//规则计数
@@ -50,7 +50,6 @@ int main()
         getline(cin,cmd);
         stringstream ss(cmd);
         ss >> cmd;
-        cout<<cmd<<endl;
 
         if(cmd == "q"){
             flag = false;
