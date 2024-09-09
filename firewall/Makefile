@@ -10,7 +10,7 @@ all: mod app
 mod:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD)
 app:
-	g++ client.cpp -o client -std=c++11
+	g++ client.cpp -o client -std=c++17
 clean:
 	rm -fr *.ko *.o *.cmd cmd $(MODULE_NAME).mod.c modules.order Module.symvers
 
