@@ -137,7 +137,6 @@ unsigned filter_hook_func(void *priv, struct sk_buff *skb, const struct nf_hook_
 }
 void netlink_recv(struct sk_buff *skb)
 {
-
     struct nlmsghdr *nlh;//netlink消息头结构指针
     nlh = nlmsg_hdr(skb);//提取netlink消息
     //消息长度
@@ -152,6 +151,12 @@ void netlink_recv(struct sk_buff *skb)
     process_message(message);
 }
 void process_message(unsigned char *message){
+    FIREWALL_LOG("Received message (hex):");
+    int i;
+    // 打印收到的消息内容，逐字节打印十六进制值
+    for (i = 0; i < sizeof(Rule) + 1; ++i) {  // sizeof(Rule) + 1 包含首字节的操作类型
+        FIREWALL_LOG("%02X ", message[i]);  // 按十六进制输出每个字节
+    }
     char op = *message;
     switch (op) {
         case '0':{
