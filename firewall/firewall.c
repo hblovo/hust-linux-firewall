@@ -152,26 +152,29 @@ void netlink_recv(struct sk_buff *skb)
 }
 void process_message(unsigned char *message){
     FIREWALL_LOG("Received message (hex):");
-    int i;
-    // 打印收到的消息内容，逐字节打印十六进制值
-    for (i = 0; i < sizeof(Rule) + 1; ++i) {  // sizeof(Rule) + 1 包含首字节的操作类型
-        FIREWALL_LOG("%02X ", message[i]);  // 按十六进制输出每个字节
-    }
-    char op = *message;
+//    int i;
+//    // 打印收到的消息内容，逐字节打印十六进制值
+//    for (i = 0; i < sizeof(Rule) + 1; ++i) {  // sizeof(Rule) + 1 包含首字节的操作类型
+//        FIREWALL_LOG("%02X ", message[i]);  // 按十六进制输出每个字节
+//    }
+    unsigned char op = *message;
     switch (op) {
-        case '0':{
+        case 0:{
+            FIREWALL_LOG("add-rule");
+            break;
+        }
+        case 1:{
+            FIREWALL_LOG("modify-rule");
+            break;
+        }
+        case 2:{
+            FIREWALL_LOG("delete-rule");
+            break;
+        }
+        case 3:{
 
         }
-        case '1':{
-
-        }
-        case '2':{
-
-        }
-        case '3':{
-
-        }
-        case '4':{
+        case 4:{
 
         }
         case '5':{
@@ -182,6 +185,9 @@ void process_message(unsigned char *message){
         }
         case '7':{
 
+        }
+        default:{
+            FIREWALL_LOG("hello world");
         }
     }
 }

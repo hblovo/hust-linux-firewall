@@ -42,7 +42,11 @@ int main()
         cout << "——————————————————————————————————————————————————————————————————————\n"
              << "请按照规则输入指令进行相应的防火墙控制，使用方式如下：\n"
              << "1. 添加防火墙规则   ||add-rule ||protocol ||src_IP   ||src_port ||dst_IP   ||dst_port ||action\n"
+             << "2. 修改防火墙规则   ||modify-rule ||number   ||protocol ||src_IP   ||src_port ||dst_IP   ||dst_port ||action\n"
+             << "3. 删除防火墙规则   ||delete-rule ||number\n"
              << "4. 展示防火墙规则   ||ls-rule\n"
+             << "5. 展示已有连接     ||ls-connection\n"
+             << "展示日志            ||show-log\n"
              << "退出程序            q\n"
              << "——————————————————————————————————————————————————————————————————————\n"
              << "请输入指令：\n";
@@ -52,7 +56,8 @@ int main()
         stringstream ss(cmd);
         ss >> cmd;
 
-        if (cmd == "add-rule") {
+        if (cmd == "add-rule")//0--添加规则
+        {
             // 输入需要添加的规则
             Rule rule;
             input_rule(ss,&rule);
@@ -69,7 +74,7 @@ int main()
             netlink_send(socket_fd, message, sizeof(Rule) + 1);
         }
         //修改防火墙规则
-        if(cmd == "modify-rule")
+        if(cmd == "modify-rule")//1--修改规则
         {
             string index_str;
             ss >> index_str;
@@ -78,12 +83,50 @@ int main()
                 cout << "[ERROR] 规则不存在\n";
                 continue;
             }
+            Rule rule;
+            input_rule(ss,&rule);
+            rule.number = index;
+            rules[rule.number-1] = rule;
 
+            // 组装消息并发送
+            unsigned char message[MAX_MSG_LEN];
+            memset(message, 0, sizeof(message));  // 清空 message 缓冲区
+
+            message[0] = 1; // 设置第一个字节为 1，表示 modify-rule 操作
+            memcpy(&message[1], (unsigned char *)&rule, sizeof(Rule)); // 从 message[1] 开始存储 rule
+            // 发送消息
+            netlink_send(socket_fd, message, sizeof(Rule) + 1);
+
+        }
+        if(cmd == "delete-rule")
+        {
+            string index_str;
+            ss >> index_str;
+            int index = stoi(index_str);
+            if(index > rule_cnt){
+                cout << "[ERROR] 规则不存在\n";
+                continue;
+            }
+            // 前移其他规则
+            memcpy(rules + index - 1, rules + index, (rule_cnt-- - index) * sizeof(Rule));
+            for (int i = rm_num - 1; i < rule_cnt; ++i)
+            {
+                rules[i].number = i + 1;
+            }
+
+            unsigned char message[3];
+            memset(message, 0, sizeof(message));  // 清空 message 缓冲区
+
+            message[0] = 2; // 设置第一个字节为 2，表示 delete-rule 操作
+            message[1] = index;
+            // 发送消息
+            netlink_send(socket_fd, message, 2);
         }
         //查询现有规则
         if(cmd == "ls-rule"){
             list_rules();
         }
+        
         if(cmd == "show-log"){
             system("dmesg | grep \"firewall\"");
         }

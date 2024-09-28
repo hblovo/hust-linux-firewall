@@ -19,7 +19,7 @@ typedef struct {
 } Log;
 
 typedef struct {
-    char number;             // 规则的编号
+    int number;             // 规则的编号
     char action;             // 动作：拒绝/放行
     unsigned src_ip;         // 源IP地址
     unsigned dst_ip;         // 目的IP地址
