@@ -22,6 +22,7 @@ int rule_cnt;//规则计数
 void list_rules();
 void init_map();
 string get_IP(unsigned IP);
+int input_rule(stringstream &ss, Rule *rule);
 int main()
 {
     //安装模块，并使用脚本生成日志文件
@@ -54,34 +55,7 @@ int main()
         if (cmd == "add-rule") {
             // 输入需要添加的规则
             Rule rule;
-            string protocol;
-            char action;
-            ss >> protocol;
-            rule.protocol = protocol_map[protocol];
-
-            if (protocol == "ICMP") {
-                string src_ip, dst_ip;
-                ss >> src_ip;
-                ss >> dst_ip;
-                rule.src_ip = (src_ip == "ANY") ? ANY : inet_addr(src_ip.c_str());
-                rule.dst_ip = (dst_ip == "ANY") ? ANY : inet_addr(dst_ip.c_str());
-                // ICMP 直接在网络层工作，不需要使用端口号
-                rule.src_port = 0;
-                rule.dst_port = 0;
-            } else if (protocol == "TCP" || protocol == "UDP") {
-                string src_ip, dst_ip, src_port, dst_port;
-                ss >> src_ip;
-                ss >> src_port;
-                ss >> dst_ip;
-                ss >> dst_port;
-                rule.src_ip = (src_ip == "ANY") ? ANY : inet_addr(src_ip.c_str());
-                rule.dst_ip = (dst_ip == "ANY") ? ANY : inet_addr(dst_ip.c_str());
-                rule.src_port = (src_port == "ANY") ? ANY : htons(stoi(src_port)); // 使用网络字节序
-                rule.dst_port = (dst_port == "ANY") ? ANY : htons(stoi(dst_port)); // 使用网络字节序
-            }
-
-            ss >> action;
-            rule.action = action;
+            input_rule(ss,&rule);
             rule.number = rule_cnt + 1;
             rules[rule_cnt++] = rule;
 
@@ -94,7 +68,18 @@ int main()
             // 发送消息
             netlink_send(socket_fd, message, sizeof(Rule) + 1);
         }
+        //修改防火墙规则
+        if(cmd == "modify-rule")
+        {
+            string index_str;
+            ss >> index_str;
+            int index = stoi(index_str);
+            if(index > rule_cnt){
+                cout << "[ERROR] 规则不存在\n";
+                continue;
+            }
 
+        }
         //查询现有规则
         if(cmd == "ls-rule"){
             list_rules();
@@ -117,7 +102,7 @@ void init_map(){
 }
 void list_rules() {
     if (rule_cnt == 0) {
-        cout << "无规则。\n";
+        cout << "[无规则]\n";
         return;
     }
 
@@ -151,6 +136,33 @@ void list_rules() {
     }
 
     cout << "————————————————————————————————————————————————————————————————————————\n";
+}
+int input_rule(stringstream &ss, Rule *rule) {
+
+    string protocol;
+    char action;
+    ss >> protocol;
+    rule->protocol = protocol_map.at(protocol); // 使用 at() 确保访问有效
+
+    if (protocol == "ICMP") {
+        std::string src_ip, dst_ip;
+        ss >> src_ip >> dst_ip;
+        rule->src_ip = (src_ip == "ANY") ? ANY : inet_addr(src_ip.c_str());
+        rule->dst_ip = (dst_ip == "ANY") ? ANY : inet_addr(dst_ip.c_str());
+        rule->src_port = 0;
+        rule->dst_port = 0;
+    } else if (protocol == "TCP" || protocol == "UDP") {
+        std::string src_ip, dst_ip, src_port, dst_port;
+        ss >> src_ip >> src_port >> dst_ip >> dst_port;
+        rule->src_ip = (src_ip == "ANY") ? ANY : inet_addr(src_ip.c_str());
+        rule->dst_ip = (dst_ip == "ANY") ? ANY : inet_addr(dst_ip.c_str());
+        rule->src_port = (src_port == "ANY") ? ANY : htons(stoi(src_port));
+        rule->dst_port = (dst_port == "ANY") ? ANY : htons(stoi(dst_port));
+    }
+
+    ss >> action;
+    rule->action = action;
+    return 0;
 }
 string get_IP(unsigned IP)
 {
