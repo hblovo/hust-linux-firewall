@@ -109,7 +109,7 @@ int main()
             }
             // 前移其他规则
             memcpy(rules + index - 1, rules + index, (rule_cnt-- - index) * sizeof(Rule));
-            for (int i = rm_num - 1; i < rule_cnt; ++i)
+            for (int i = index - 1; i < rule_cnt; ++i)
             {
                 rules[i].number = i + 1;
             }
@@ -126,9 +126,36 @@ int main()
         if(cmd == "ls-rule"){
             list_rules();
         }
-        
+        if(cmd == "ls-connection"){
+            unsigned char message[2];//表示查看现有连接
+            memset(message,0,sizeof(message));
+            message[0] = 3;
+            netlink_send(socket_fd,message,2);
+
+            Rule connection;
+            Message recv_message;
+            while (!netlink_recv(socket_fd,&recv_message,sizeof(Message))){
+                memcpy(&connection, &recv_message.msg, sizeof(connection));
+
+                if (connection.action == 'q') break;
+
+
+
+
+                
+            }
+        }
         if(cmd == "show-log"){
             system("dmesg | grep \"firewall\"");
+        }
+        if(cmd == "action"){
+            string action;
+            ss >> action;
+            unsigned char message[3];
+            memset(message,0,sizeof(message));
+            message[0] = 6;
+            message[1] = (action[0] == 'Y' ? 1:0);
+            netlink_send(socket_fd,message,3);
         }
         if(cmd == "q"){
             flag = false;

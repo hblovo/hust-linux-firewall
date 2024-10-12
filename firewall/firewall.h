@@ -27,3 +27,28 @@ typedef struct {
     int dst_port;            // 目的端口
     int protocol;            // 协议
 } Rule;
+typedef struct
+{
+    unsigned char flags;
+    unsigned short src_port;
+    unsigned short dst_port;
+    unsigned src_IP;
+    unsigned dst_IP;
+    unsigned first_FIN;
+} TCP_Connection;
+
+typedef struct
+{
+    unsigned short src_port;
+    unsigned short dst_port;
+    unsigned src_IP;
+    unsigned dst_IP;
+    unsigned long time;
+} UDP_Connection;
+
+typedef struct
+{
+    unsigned src_IP;
+    unsigned dst_IP;
+    unsigned long time;
+} ICMP_Connection;

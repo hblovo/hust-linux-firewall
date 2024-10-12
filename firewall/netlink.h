@@ -66,3 +66,22 @@ int netlink_send(int socket_fd, unsigned char *message, unsigned messageLen)
     free(nlh);
     return 0;
 }
+int netlink_recv(int socket_fd, Message *message, int len)
+{
+    // 设置内核地址
+    struct sockaddr_nl kernel;
+    memset(&kernel, 0, sizeof(kernel));
+    kernel.nl_family = AF_NETLINK;
+    kernel.nl_pid = 0; // 发往内核
+    kernel.nl_groups = 0;
+
+    int ret;
+    unsigned kernelLen = sizeof(kernel);
+    ret = recvfrom(socket_fd, message, len, 0, (struct sockaddr *)&kernel, &kernelLen);
+    if (!ret) // recv失败
+    {
+        return -1;
+    }
+
+    return 0;
+}
