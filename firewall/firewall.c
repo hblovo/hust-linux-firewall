@@ -7,11 +7,26 @@
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/ip.h>
+#include <linux/netlink.h>
+#include <linux/sched.h>
+#include <linux/skbuff.h>
 #include <linux/tcp.h>
-
+#include <linux/time.h>
+#include <linux/types.h>
+#include <linux/udp.h>
+#include <linux/version.h>
+#include <net/sock.h>
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("hblovo");
 unsigned filter_hook_func(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
+void header_analyse(struct sk_buff *skb, struct iphdr *hdr, int *src_port, int *dst_port,
+                    unsigned char *flags);
+unsigned TCP_check(unsigned src_IP, unsigned short src_port, unsigned dst_IP, unsigned short dst_port,
+                   unsigned char flags);
+unsigned UDP_check(unsigned src_IP, unsigned short src_port, unsigned dst_IP, unsigned short dst_port);
+unsigned ICMP_check(unsigned src_IP, unsigned dst_IP);
+unsigned char match(unsigned char protocol, unsigned src_IP, unsigned short src_port, unsigned dst_IP,
+                    unsigned short dst_port);
 void process_message(unsigned char *message);
 void show_connection(void);
 long get_time(void);
@@ -115,18 +130,43 @@ unsigned filter_hook_func(void *priv, struct sk_buff *skb, const struct nf_hook_
     struct iphdr *iph;
     struct tcphdr *tcph;
     struct udphdr *udph;
-    Log log;
+
     // 检查包是否为空
     if (!skb)
         return action;
-
+    unsigned index;
+    unsigned char TCP_flags;
     // 获取 IP 头
     iph = ip_hdr(skb);
+//    struct iphdr {
+//#if defined (__LITTLE_ENDIAN_BITFIELD)
+//        __u8 ihl:4,
+//version:4;
+//#elif defined (__BIG_ENDIAN_BITFIELD)
+//        __u8 version:4,
+//ihl:4;
+//#else
+//#error "Please fix <asm/byteorder.h>"
+//#endif
+//        __u8 tos;
+//        __be16 tot_len;
+//        __be16 id;
+//        __be16 frag_off;
+//        __u8 ttl;
+//        __u8 protocol;
+//        __be16 check;
+//        __be32 saddr;
+//        __be32 daddr;
+//    };
     if (!iph)
         return action;
-
+    Log log;
+    log.protocol = iph->protocol;
+    log.src_ip = iph->saddr;
+    log.dst_ip = iph->daddr;
+    header_analyse(skb, iph, &log.src_port, &log.dst_port, &TCP_flags);
     // 检查协议类型
-    switch (iph->protocol) {
+    switch (log.protocol) {
         case TCP:{// TCP 协议
 
         }
@@ -263,4 +303,121 @@ void show_connection(void)
     //查询完成
     connection.action = 'f';
     netlink_send((unsigned char*)&connection,sizeof(Rule));
+}
+void header_analyse(struct sk_buff *skb, struct iphdr *hdr, int *src_port, int *dst_port,
+                    unsigned char *flags)
+{
+    struct tcphdr *tcp;
+    struct udphdr *udp;
+    *src_port = 0;
+    *dst_port = 0;
+    if (hdr->protocol == TCP)
+    {
+        tcp = (struct tcphdr *)(skb->data + 4 * hdr->ihl); // skb->data: 网络数据包中IP数据包的起点地址
+        *src_port = tcp->source;
+        *dst_port = tcp->dest;
+        *flags = (tcp->ack << 4) ^ (tcp->rst << 2) ^ tcp->syn << 1 ^ tcp->fin;
+    }
+    else if (hdr->protocol == UDP)
+    {
+        udp = (struct udphdr *)(skb->data + 4 * hdr->ihl); // hdr->ihl: IP数据包的首部长度，以4字节为单位
+        *src_port = udp->source;
+        *dst_port = udp->dest;
+    }
+}
+unsigned TCP_check(unsigned src_IP,unsigned short src_port,unsigned dst_IP,unsigned short dst_port,unsigned char flags){
+    unsigned char index;
+    unsigned char FIN, SYN, RST, ACK;
+    index = (my_hash_32(src_IP) ^ my_hash_32(dst_IP) ^ my_hash_16(src_port) ^ my_hash_16(dst_port)) % 256;
+
+    FIN = flags & 1;
+    SYN = flags & 1 << 1;
+    RST = flags & 1 << 2;
+    ACK = flags & 1 << 4;
+
+    // 测试时使用，为保证已存在的连接不断
+    if (TCP_connection[index].flags == 0 && !SYN && ACK)
+    {
+        return 256;
+    }
+
+    if (TCP_connection[index].flags) // 已有连接
+    {
+        if ((src_IP == TCP_connection[index].src_IP && src_port == TCP_connection[index].src_port &&
+             dst_IP == TCP_connection[index].dst_IP && dst_port == TCP_connection[index].dst_port) ||
+            (src_IP == TCP_connection[index].dst_IP && src_port == TCP_connection[index].dst_port &&
+             dst_IP == TCP_connection[index].src_IP && dst_port == TCP_connection[index].src_port))
+        {
+            if (RST || TCP_connection[index].flags == 3) // RST或第4次挥手
+            {
+                TCP_connection[index].flags = 0;
+            }
+            else if (FIN)
+            {
+                ++TCP_connection[index].flags;
+            }
+            return 256;
+        }
+        else // 表示发生碰撞，丢弃
+        {
+            return 257;
+        }
+    }
+    else if (SYN && !ACK) // 第一次握手
+    {
+        return index;
+    }
+}
+unsigned UDP_check(unsigned src_IP, unsigned short src_port, unsigned dst_IP, unsigned short dst_port)
+{
+    unsigned char index;
+    index = (my_hash_32(src_IP) ^ my_hash_32(dst_IP) ^ my_hash_16(src_port) ^ my_hash_16(dst_port)) % 256;
+
+    if (jiffies < UDP_connection[index].time)
+    {
+        if ((src_IP == UDP_connection[index].src_IP && src_port == UDP_connection[index].src_port &&
+             dst_IP == UDP_connection[index].dst_IP && dst_port == UDP_connection[index].dst_port) ||
+            (src_IP == UDP_connection[index].dst_IP && src_port == UDP_connection[index].dst_port &&
+             dst_IP == UDP_connection[index].src_IP && dst_port == UDP_connection[index].src_port))
+        {
+            UDP_connection[index].time = jiffies + 10 * HZ; // 更新超时时间
+            return 256;                              // 表示连接存在且未超时
+        }
+        else
+        {
+            return 257; // 表示发生碰撞，丢弃
+        }
+    }
+    else
+    {
+        return index; // 表示旧连接超时，需建立新连接
+    }
+}
+
+unsigned ICMP_check(unsigned src_IP, unsigned dst_IP)
+{
+    unsigned char index;
+    index = (my_hash_32(src_IP) ^ my_hash_32(dst_IP)) % 256;
+
+    if (jiffies < ICMP_connection[index].time)
+    {
+        if ((src_IP == ICMP_connection[index].src_IP && dst_IP == ICMP_connection[index].dst_IP) ||
+            (src_IP == ICMP_connection[index].dst_IP && dst_IP == ICMP_connection[index].src_IP))
+        {
+            ICMP_connection[index].time = jiffies + 10 * HZ; // 更新超时时间
+            return 256;                               // 表示连接存在且未超时
+        }
+        else
+        {
+            return 257; // 表示发生碰撞，丢弃
+        }
+    }
+    else
+    {
+        return index; // 表示旧连接超时，需建立新连接
+    }
+}
+unsigned char match(unsigned char protocol, unsigned src_IP, unsigned short src_port, unsigned dst_IP,unsigned short dst_port)
+{
+    return 'N';
 }

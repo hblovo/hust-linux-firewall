@@ -23,6 +23,9 @@ void list_rules();
 void init_map();
 string get_IP(unsigned IP);
 int input_rule(stringstream &ss, Rule *rule);
+string IP_transform(unsigned IP);
+string port_transform(int port);
+string get_protocol(int protocol);
 int main()
 {
     //安装模块，并使用脚本生成日志文件
@@ -138,11 +141,11 @@ int main()
                 memcpy(&connection, &recv_message.msg, sizeof(connection));
 
                 if (connection.action == 'q') break;
-
-
-
-
-                
+                cout << "| " << setw(4) << get_protocol(connection.protocol) << " | " << setw(15)
+                     << IP_transform(connection.src_ip) << " | " << setw(6) << port_transform(connection.src_port)
+                     << " | " << setw(15) << IP_transform(connection.dst_ip) << " | " << setw(6)
+                     << port_transform(connection.dst_port) << " | " << endl;
+                cout << "——————————————————————————————————————————————————————————————\n";
             }
         }
         if(cmd == "show-log"){
@@ -244,3 +247,32 @@ string get_IP(unsigned IP)
         return inet_ntoa(addr);
     }
 }
+string get_protocol(int protocol)
+{
+    for(const auto &entry : protocol_map) {
+        const string &name = entry.first;
+        int number = entry.second;
+        if(protocol == number) {
+            return name;
+        }
+    }
+    return "";
+}
+string IP_transform(unsigned IP)
+{
+    if(IP == 0) return "ANY";
+    else{
+        struct in_addr addr;
+        memcpy(&addr,&IP,4);
+        return inet_ntoa(addr);
+    }
+}
+string port_transform(int port)
+{
+    if(port == 0) return "ANY";
+    else{
+        return to_string(ntohs(port));
+    }
+
+}
+
